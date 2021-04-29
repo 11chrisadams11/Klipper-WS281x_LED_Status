@@ -24,6 +24,7 @@ HEATING_PROGRESS_COLOR = (255, 0  , 0  )
 PRINT_BASE_COLOR       = (0  , 0  , 0  )
 PRINT_PROGRESS_COLOR   = (0  , 255, 0  )
 STANDBY_COLOR          = (255, 0  , 255)
+COMPLETE_COLOR         = (235, 227, 9  )
 PAUSED_COLOR           = (0  , 255, 0  )
 ERROR_COLOR            = (255, 0  , 0  )
 
@@ -72,9 +73,9 @@ def mix_color(colour1, colour2, percent_of_c1=None):
     return tuple([int(col_r), int(col_g), int(col_b)])
 
 
-def color_brightness_correction(color):
+def color_brightness_correction(color, brightness):
     ''' Adjust given color to set brightness '''
-    brightness_correction = LED_BRIGHTNESS / 255
+    brightness_correction = brightness / 255
     return (
         int(color[0] * brightness_correction),
         int(color[1] * brightness_correction),
@@ -92,13 +93,13 @@ def progress(strip, percent, base_color, progress_color):
 
     for i in range(int(upper_whole)):
         pixel = ((num_pixels - 1) - i) if REVERSE else i
-        strip.setPixelColorRGB(pixel, *color_brightness_correction(progress_color))
+        strip.setPixelColorRGB(pixel, *color_brightness_correction(progress_color, LED_BRIGHTNESS))
         pixels_remaining -= 1
 
     if upper_remainder > 0.0:
         tween_color = mix_color(progress_color, base_color, upper_remainder)
         pixel = ((num_pixels - int(upper_whole)) - 1) if REVERSE else int(upper_whole)
-        strip.setPixelColorRGB(pixel, *color_brightness_correction(tween_color))
+        strip.setPixelColorRGB(pixel, *color_brightness_correction(tween_color, LED_BRIGHTNESS))
         pixels_remaining -= 1
 
     for i in range(pixels_remaining):
@@ -107,7 +108,7 @@ def progress(strip, percent, base_color, progress_color):
             if REVERSE
             else ((num_pixels - pixels_remaining) + i)
         )
-        strip.setPixelColorRGB(pixel, *color_brightness_correction(base_color))
+        strip.setPixelColorRGB(pixel, *color_brightness_correction(base_color, LED_BRIGHTNESS))
 
     strip.show()
 
@@ -139,7 +140,7 @@ def chase(strip, color, reverse):
         for pixel in range(strip.numPixels()):
             print(i, pixel)
             if i == pixel:
-                strip.setPixelColorRGB(pixel, *color)
+                strip.setPixelColorRGB(pixel, *color_brightness_correction(color, LED_BRIGHTNESS))
             else:
                 strip.setPixelColorRGB(pixel, 0, 0, 0)
             strip.show()
@@ -150,6 +151,35 @@ def bounce(strip, color):
     ''' Bounce one LED back and forth '''
     chase(strip, color, False)
     chase(strip, color, True)
+
+
+def chase_ghost(strip, color, reverse):
+    ''' Light one LED from one ond of the strip to the other, optionally reversed '''
+    strip.setBrightness(LED_BRIGHTNESS)
+    for i in reversed(range(strip.numPixels()+5)) if reverse else range(strip.numPixels()+5):
+        for pixel in range(strip.numPixels()):
+            if i == pixel:
+                brightness = LED_BRIGHTNESS/4 if reverse else LED_BRIGHTNESS
+                strip.setPixelColorRGB(pixel, *color_brightness_correction(color, brightness))
+            elif i - 1 == pixel:
+                brightness = (LED_BRIGHTNESS/4)*2 if reverse else (LED_BRIGHTNESS/4)*3
+                strip.setPixelColorRGB(pixel, *color_brightness_correction(color, brightness))
+            elif i - 2 == pixel:
+                brightness = (LED_BRIGHTNESS/4)*3 if reverse else (LED_BRIGHTNESS/4)*2
+                strip.setPixelColorRGB(pixel, *color_brightness_correction(color, brightness))
+            elif i - 3 == pixel:
+                brightness = LED_BRIGHTNESS if reverse else LED_BRIGHTNESS/4
+                strip.setPixelColorRGB(pixel, *color_brightness_correction(color, brightness))
+            else:
+                strip.setPixelColorRGB(pixel, 0, 0, 0)
+            strip.show()
+            time.sleep(0.01)
+
+
+def ghost_bounce(strip, color):
+    ''' Bounce one LED back and forth '''
+    chase_ghost(strip, color, False)
+    chase_ghost(strip, color, True)
 
 
 def run():
@@ -206,6 +236,9 @@ def run():
 
             while printer_state() == 'error':
                 fade(strip, ERROR_COLOR, 'fast')
+
+            while printer_state() == 'complete':
+                ghost_bounce(strip, COMPLETE_COLOR)
 
             time.sleep(2)
 
