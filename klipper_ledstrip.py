@@ -19,15 +19,17 @@ LED_BRIGHTNESS = 100     # Set to 0 for darkest and 255 for brightest
 LED_INVERT     = False   # True to invert the signal (when using NPN transistor level shift)
 LED_CHANNEL    = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
 
-## Colors to use          R    G    B
-HEATING_BASE_COLOR     = (0  , 0  , 255)
-HEATING_PROGRESS_COLOR = (255, 0  , 0  )
-PRINT_BASE_COLOR       = (0  , 0  , 0  )
-PRINT_PROGRESS_COLOR   = (0  , 255, 0  )
-STANDBY_COLOR          = (255, 0  , 255)
-COMPLETE_COLOR         = (235, 227, 9  )
-PAUSED_COLOR           = (0  , 255, 0  )
-ERROR_COLOR            = (255, 0  , 0  )
+## Colors to use                 R    G    B
+BED_HEATING_BASE_COLOR        = (0  , 0  , 255)
+BED_HEATING_PROGRESS_COLOR    = (238, 130, 238)
+HOTEND_HEATING_BASE_COLOR     = (238, 130, 238)
+HOTEND_HEATING_PROGRESS_COLOR = (255, 0  , 0  )
+PRINT_BASE_COLOR              = (0  , 0  , 0  )
+PRINT_PROGRESS_COLOR          = (0  , 255, 0  )
+STANDBY_COLOR                 = (255, 0  , 255)
+COMPLETE_COLOR                = (235, 227, 9  )
+PAUSED_COLOR                  = (0  , 255, 0  )
+ERROR_COLOR                   = (255, 0  , 0  )
 
 ## Reverses the direction of progress and chase
 REVERSE = True
@@ -228,8 +230,8 @@ def run():
                     # print(f'Bed heating percent: {bed_heating_percent}')
                     progress(strip,
                              bed_heating_percent,
-                             HEATING_BASE_COLOR,
-                             HEATING_PROGRESS_COLOR)
+                             BED_HEATING_BASE_COLOR,
+                             BED_HEATING_PROGRESS_COLOR)
                     time.sleep(2)
                     bed_heating_percent = heating_percent('heater_bed')
 
@@ -238,8 +240,8 @@ def run():
                     # print(f'Extruder heating percent: {extruder_heating_percent}')
                     progress(strip,
                              extruder_heating_percent,
-                             HEATING_BASE_COLOR,
-                             HEATING_PROGRESS_COLOR)
+                             HOTEND_HEATING_BASE_COLOR,
+                             HOTEND_HEATING_PROGRESS_COLOR)
                     time.sleep(2)
                     extruder_heating_percent = heating_percent('extruder')
 
