@@ -38,6 +38,7 @@ SHUTDOWN_WHEN_COMPLETE = True
 BED_TEMP_FOR_OFF       = 35
 HOTEND_TEMP_FOR_OFF    = 30
 
+
 def printer_state():
     ''' Get printer status '''
     url = 'http://localhost:7125/printer/objects/query?print_stats'
@@ -99,6 +100,12 @@ def color_brightness_correction(color, brightness):
         int(color[1] * brightness_correction),
         int(color[2] * brightness_correction)
     )
+
+
+def static_color(strip, color, brightness=LED_BRIGHTNESS):
+    for pixel in range(strip.numPixels()):
+        strip.setPixelColorRGB(pixel, *color_brightness_correction(color, brightness))
+    strip.show()
 
 
 def progress(strip, percent, base_color, progress_color):
@@ -290,4 +297,17 @@ def run():
 
 
 if __name__ == '__main__':
-    run()
+    if len(sys.argv) > 1:
+        strip = Adafruit_NeoPixel(LED_COUNT,
+                              LED_PIN,
+                              LED_FREQ_HZ,
+                              LED_DMA,
+                              LED_INVERT,
+                              LED_BRIGHTNESS,
+                              LED_CHANNEL)
+        strip.begin()
+        color = (int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
+        brightness = int(sys.argv[4]) if len(sys.argv) > 4 else LED_BRIGHTNESS
+        static_color(strip, color, brightness)
+    else:
+        run()
