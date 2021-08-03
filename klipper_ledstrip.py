@@ -15,7 +15,7 @@ LED_COUNT      = 10      # Number of LED pixels.
 LED_PIN        = 10      # GPIO pin connected to the pixels (18 uses PWM, 10 uses SPI).
 LED_FREQ_HZ    = 800000  # LED signal frequency in hertz (usually 800khz)
 LED_DMA        = 10      # DMA channel to use for generating signal (try 10)
-LED_BRIGHTNESS = 100     # Set to 0 for darkest and 255 for brightest
+LED_BRIGHTNESS = 255     # Set to 0 for darkest and 255 for brightest
 LED_INVERT     = False   # True to invert the signal (when using NPN transistor level shift)
 LED_CHANNEL    = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
 
@@ -32,7 +32,7 @@ PAUSED_COLOR                  = (0  , 255, 0  )
 ERROR_COLOR                   = (255, 0  , 0  )
 
 ## Reverses the direction of progress and chase
-REVERSE = True
+REVERSE = False
 
 SHUTDOWN_WHEN_COMPLETE = True
 BED_TEMP_FOR_OFF       = 35
@@ -65,7 +65,7 @@ def printing_percent():
     ''' Get printing progress percent '''
     url = 'http://localhost:7125/printer/objects/query?display_status'
     req = json.loads(requests.get(url).text)
-    return math.floor(req['result']['status']['display_status']['progress']*100)
+    return round(req['result']['status']['display_status']['progress']*100)
 
 
 def power_off():
@@ -163,7 +163,7 @@ def chase(strip, color, reverse):
     strip.setBrightness(LED_BRIGHTNESS)
     for i in reversed(range(strip.numPixels()+1)) if reverse else range(strip.numPixels()+1):
         for pixel in range(strip.numPixels()):
-            print(i, pixel)
+#            print(i, pixel)
             if i == pixel:
                 strip.setPixelColorRGB(pixel, *color_brightness_correction(color, LED_BRIGHTNESS))
             else:
@@ -229,68 +229,57 @@ def run():
     try:
         while True:
             printer_state_ = printer_state()
-            print(printer_state_)
-            while printer_state_ == 'printing':
+            # print(printer_state_)
+            if printer_state_ == 'printing':
 
                 bed_heating_percent = heating_percent('heater_bed')
-                while bed_heating_percent < 99:
-                    # print(f'Bed heating percent: {bed_heating_percent}')
+                if bed_heating_percent < 99:
+                    # print(f'Bed heating: {bed_heating_percent}%')
                     progress(strip,
                              bed_heating_percent,
                              BED_HEATING_BASE_COLOR,
                              BED_HEATING_PROGRESS_COLOR)
-                    time.sleep(2)
-                    bed_heating_percent = heating_percent('heater_bed')
 
                 extruder_heating_percent = heating_percent('extruder')
-                while extruder_heating_percent < 99:
-                    # print(f'Extruder heating percent: {extruder_heating_percent}')
+                if extruder_heating_percent < 99:
+                    # print(f'Extruder heating: {extruder_heating_percent}%')
                     progress(strip,
                              extruder_heating_percent,
                              HOTEND_HEATING_BASE_COLOR,
                              HOTEND_HEATING_PROGRESS_COLOR)
-                    time.sleep(2)
-                    extruder_heating_percent = heating_percent('extruder')
 
                 printing_percent_ = printing_percent()
-                while 0 < printing_percent_ < 100:
-                    # print(f'Print progress percent: {printing_percent_}')
+                if 0 < printing_percent_ < 100:
+                    # print(f'Print progress: {printing_percent_}%')
                     progress(strip,
                              printing_percent_,
                              PRINT_BASE_COLOR,
                              PRINT_PROGRESS_COLOR)
-                    time.sleep(2)
-                    printing_percent_ = printing_percent()
 
-                printer_state_ = printer_state()
 
-            while printer_state_ == 'standby':
-                fade(strip, STANDBY_COLOR, 'slow')
-                printer_state_ = printer_state()
+            if printer_state_ == 'standby':
+                ghost_bounce(strip, STANDBY_COLOR) #, 'slow')
 
-            while printer_state_ == 'paused':
+            if printer_state_ == 'paused':
                 bounce(strip, PAUSED_COLOR)
-                printer_state_ = printer_state()
 
-            while printer_state_ == 'error':
+            if printer_state_ == 'error':
                 fade(strip, ERROR_COLOR, 'fast')
-                printer_state_ = printer_state()
 
-            while printer_state_ == 'complete':
+            if printer_state_ == 'complete':
                 ghost_bounce(strip, COMPLETE_COLOR)
                 shutdown_counter += 1
                 if SHUTDOWN_WHEN_COMPLETE and shutdown_counter > 9:
                     shutdown_counter = 0
                     bed_temp = component_temp('heater_bed')
                     extruder_temp = component_temp('extruder')
+                    print(f'\nBed temp: {bed_temp}\nExtruder temp: {extruder_temp}\n')
                     if bed_temp < BED_TEMP_FOR_OFF and extruder_temp < HOTEND_TEMP_FOR_OFF:
                         clear_strip(strip)
                         print(power_off())
                         sys.exit()
-                printer_state_ = printer_state()
 
             time.sleep(2)
-            printer_state_ = printer_state()
 
     except KeyboardInterrupt:
         clear_strip(strip)
