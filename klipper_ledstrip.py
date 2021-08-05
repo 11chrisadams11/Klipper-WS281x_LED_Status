@@ -35,15 +35,18 @@ ERROR_COLOR                   = (255, 0  , 0  )
 REVERSE = False
 
 SHUTDOWN_WHEN_COMPLETE = True
-BED_TEMP_FOR_OFF       = 35
-HOTEND_TEMP_FOR_OFF    = 30
+BED_TEMP_FOR_OFF       = 40
+HOTEND_TEMP_FOR_OFF    = 33
 
 
 def printer_state():
     ''' Get printer status '''
     url = 'http://localhost:7125/printer/objects/query?print_stats'
     ret = requests.get(url)
-    return json.loads(ret.text)['result']['status']['print_stats']['state']
+    try:
+        return json.loads(ret.text)['result']['status']['print_stats']['state']
+    except KeyError:
+        return False
 
 
 def component_temp(component, just_temp=True):
@@ -273,7 +276,7 @@ def run():
                     shutdown_counter = 0
                     bed_temp = component_temp('heater_bed')
                     extruder_temp = component_temp('extruder')
-                    print(f'\nBed temp: {bed_temp}\nExtruder temp: {extruder_temp}\n')
+                    print(f'\nBed temp: {round(bed_temp, 2)}\nExtruder temp: {round(extruder_temp, 2)}\n')
                     if bed_temp < BED_TEMP_FOR_OFF and extruder_temp < HOTEND_TEMP_FOR_OFF:
                         clear_strip(strip)
                         print(power_off())
