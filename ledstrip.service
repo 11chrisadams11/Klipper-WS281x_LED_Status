@@ -1,0 +1,16 @@
+[Unit]
+Description=Simplified Python Klipper LED Strip Service
+After=syslog.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Klipper-WS281x_LED_Status/
+ExecStart=/home/pi/Klipper-WS281x_LED_Status/klipper_ledstrip.py
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target
+

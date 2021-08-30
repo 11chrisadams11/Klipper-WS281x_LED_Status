@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3 -u
 # pylint: disable=C0326
 '''
 Script to take info from Klipper and light up WS281x LED strip based on current status
@@ -35,8 +35,11 @@ ERROR_COLOR                   = (255, 0  , 0  )
 REVERSE = False
 
 SHUTDOWN_WHEN_COMPLETE = True
-BED_TEMP_FOR_OFF       = 40
-HOTEND_TEMP_FOR_OFF    = 33
+BED_TEMP_FOR_OFF       = 50
+HOTEND_TEMP_FOR_OFF    = 40
+
+## Time in seconds before LEDs turn off when on same state
+IDLE_TIMEOUT = 300
 
 
 def printer_state():
@@ -49,26 +52,48 @@ def printer_state():
         return False
 
 
-def component_temp(component, just_temp=True):
-    ''' Get temperature of given component '''
-    url = f'http://localhost:7125/printer/objects/query?{component}'
-    temp_data = json.loads(requests.get(url).text)['result']['status'][component]
-    return temp_data['temperature'] if just_temp else temp_data
+def power_status():
+    url = 'http://localhost:7125/machine/device_power/devices?device=printer'
+    ret = requests.get(url)
+    return json.loads(ret.text)['result']['devices'][0]['status']
 
 
-def heating_percent(component):
+
+def printing_stats(base_temps):
+    ''' Get stats for bed heater, hotend, and printing percent '''
+    url = f'http://localhost:7125/printer/objects/query?heater_bed&extruder&display_status'
+    data = json.loads(requests.get(url).text)
+
+    bed_temp = data['result']['status']['heater_bed']['temperature']
+    bed_target = data['result']['status']['heater_bed']['target']
+    bed_base_temp = base_temps[0] if base_temps else 0
+
+    extruder_temp = data['result']['status']['extruder']['temperature']
+    extruder_target = data['result']['status']['extruder']['target']
+    extruder_base_temp = base_temps[1] if base_temps else 0
+
+    return {
+        'bed': {
+            'temp': float(bed_temp),
+            'heating_percent': heating_percent(bed_temp, bed_target, bed_base_temp),
+            'power_percent': round(data['result']['status']['heater_bed']['power'] * 100)
+        },
+        'extruder': {
+            'temp': float(extruder_temp),
+            'heating_percent': heating_percent(extruder_temp, extruder_target, extruder_base_temp),
+            'power_percent': round(data['result']['status']['extruder']['power'] * 100)
+        },
+        'printing': {
+            'done_percent': round(data['result']['status']['display_status']['progress'] * 100)
+        }
+    }
+
+
+def heating_percent(temp, target, base_temp):
     ''' Get heating percent for given component '''
-    temp = component_temp(component, False)
-    if temp['target'] == 0.0:
+    if target == 0.0:
         return 0
-    return math.floor(temp['temperature'] / temp['target'] * 100)
-
-
-def printing_percent():
-    ''' Get printing progress percent '''
-    url = 'http://localhost:7125/printer/objects/query?display_status'
-    req = json.loads(requests.get(url).text)
-    return round(req['result']['status']['display_status']['progress']*100)
+    return math.floor(((temp - base_temp) * 100) / (target - base_temp))
 
 
 def power_off():
@@ -161,7 +186,7 @@ def fade(strip, color, speed='slow'):
         time.sleep(speed)
 
 
-def chase(strip, color, reverse):
+def chase(strip, color, reverse=False):
     ''' Light one LED from one ond of the strip to the other, optionally reversed '''
     strip.setBrightness(LED_BRIGHTNESS)
     for i in reversed(range(strip.numPixels()+1)) if reverse else range(strip.numPixels()+1):
@@ -173,6 +198,8 @@ def chase(strip, color, reverse):
                 strip.setPixelColorRGB(pixel, 0, 0, 0)
             strip.show()
             time.sleep(0.01)
+    if reverse:
+        clear_strip(strip)
 
 
 def bounce(strip, color):
@@ -181,7 +208,7 @@ def bounce(strip, color):
     chase(strip, color, True)
 
 
-def chase_ghost(strip, color, reverse):
+def chase_ghost(strip, color, reverse=False):
     ''' Light one LED from one ond of the strip to the other, optionally reversed '''
     strip.setBrightness(LED_BRIGHTNESS)
     for i in reversed(range(strip.numPixels()+5)) if reverse else range(strip.numPixels()+5):
@@ -202,6 +229,8 @@ def chase_ghost(strip, color, reverse):
                 strip.setPixelColorRGB(pixel, 0, 0, 0)
             strip.show()
             time.sleep(0.01)
+    if reverse:
+        clear_strip(strip)
 
 
 def ghost_bounce(strip, color):
@@ -229,29 +258,46 @@ def run():
     strip.begin()
 
     shutdown_counter = 0
+    idle_timer = 0
+    old_state = ''
+    base_temps = []
     try:
         while True:
             printer_state_ = printer_state()
             # print(printer_state_)
             if printer_state_ == 'printing':
+                printing_stats_ = printing_stats(base_temps)
+                printing_percent_ = printing_stats_['printing']['done_percent']
+                ## Get base temperatures to make heating progress start from the bottom
+                if not base_temps:
+                    base_temps = [
+                        printing_stats_['bed']['temp'],
+                        printing_stats_['extruder']['temp']
+                    ]
 
-                bed_heating_percent = heating_percent('heater_bed')
-                if bed_heating_percent < 99:
+                if printing_percent_ < 1 and printing_stats_['bed']['heating_percent'] < 100:
                     # print(f'Bed heating: {bed_heating_percent}%')
                     progress(strip,
-                             bed_heating_percent,
+                             printing_stats_['bed']['heating_percent'],
                              BED_HEATING_BASE_COLOR,
                              BED_HEATING_PROGRESS_COLOR)
 
-                extruder_heating_percent = heating_percent('extruder')
-                if extruder_heating_percent < 99:
+                if (printing_percent_ < 1 and
+                    printing_stats_['extruder']['heating_percent'] < 100 and
+                    printing_stats_['bed']['heating_percent'] >= 99):
+
                     # print(f'Extruder heating: {extruder_heating_percent}%')
                     progress(strip,
-                             extruder_heating_percent,
+                             printing_stats_['extruder']['heating_percent'],
                              HOTEND_HEATING_BASE_COLOR,
                              HOTEND_HEATING_PROGRESS_COLOR)
 
-                printing_percent_ = printing_percent()
+                if (printing_percent_ == 0 and
+                    printing_stats_['extruder']['heating_percent'] >= 100 and
+                    printing_stats_['bed']['heating_percent'] >= 100):
+
+                    clear_strip(strip)
+
                 if 0 < printing_percent_ < 100:
                     # print(f'Print progress: {printing_percent_}%')
                     progress(strip,
@@ -260,28 +306,38 @@ def run():
                              PRINT_PROGRESS_COLOR)
 
 
-            if printer_state_ == 'standby':
-                ghost_bounce(strip, STANDBY_COLOR) #, 'slow')
+            if printer_state_ == 'standby' and idle_timer < IDLE_TIMEOUT:
+                fade(strip, STANDBY_COLOR, 'fast')
 
-            if printer_state_ == 'paused':
+            if printer_state_ == 'paused' and idle_timer < IDLE_TIMEOUT:
                 bounce(strip, PAUSED_COLOR)
 
-            if printer_state_ == 'error':
+            if printer_state_ == 'error' and idle_timer < IDLE_TIMEOUT:
                 fade(strip, ERROR_COLOR, 'fast')
 
             if printer_state_ == 'complete':
-                ghost_bounce(strip, COMPLETE_COLOR)
-                shutdown_counter += 1
-                if SHUTDOWN_WHEN_COMPLETE and shutdown_counter > 9:
-                    shutdown_counter = 0
-                    bed_temp = component_temp('heater_bed')
-                    extruder_temp = component_temp('extruder')
-                    print(f'\nBed temp: {round(bed_temp, 2)}\nExtruder temp: {round(extruder_temp, 2)}\n')
-                    if bed_temp < BED_TEMP_FOR_OFF and extruder_temp < HOTEND_TEMP_FOR_OFF:
-                        clear_strip(strip)
-                        print(power_off())
-                        sys.exit()
+                base_temps = []
+                if power_status() == 'on':
+                    ghost_bounce(strip, COMPLETE_COLOR)
+                    shutdown_counter += 1
+                    if SHUTDOWN_WHEN_COMPLETE and shutdown_counter > 9:
+                        shutdown_counter = 0
+                        printing_stats_ = printing_stats(base_temps)
+                        bed_temp = printing_stats_['bed']['temp']
+                        extruder_temp = printing_stats_['extruder']['temp']
+                        print(f'\nBed temp: {round(bed_temp, 2)}\nExtruder temp: {round(extruder_temp, 2)}\n')
+                        if bed_temp < BED_TEMP_FOR_OFF and extruder_temp < HOTEND_TEMP_FOR_OFF:
+                            clear_strip(strip)
+                            print(power_off())
 
+            if printer_state_ not in ['printing', 'complete'] and old_state == printer_state_:
+                idle_timer += 2
+                if idle_timer > IDLE_TIMEOUT:
+                    clear_strip(strip)
+            else:
+                idle_timer = 0
+
+            old_state = printer_state_
             time.sleep(2)
 
     except KeyboardInterrupt:
