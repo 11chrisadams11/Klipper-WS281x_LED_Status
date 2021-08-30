@@ -17,7 +17,15 @@ The code has been migrated from the OctoPrint-WS281x_LED_Status (https://github.
 7. Run script before starting print
    1. ```./klipper-ledstrip.py```
 
+## Directions to run as a systemd service
+
+1. Copy contents of ledstrip.service to /etc/systemd/system/ledstrip.service
+2. Modify User, Group, WorkingDirectory, and ExecStart to match your setup
+3. Run ```systemctl daemon-reload``` to enable the service
+4. Run ```systemctl enable ledstrip``` to have the service start on boot
+
 ### Single run for static colors
+#### Will only work by itself, not if running as a service
 
 ```
 ./klipper-ledstrip.py <red> <green> <blue> <brightness:optiona>
