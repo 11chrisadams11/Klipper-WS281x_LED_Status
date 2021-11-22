@@ -23,6 +23,12 @@ The code has been migrated from the OctoPrint-WS281x_LED_Status (https://github.
 2. Modify User, Group, WorkingDirectory, and ExecStart to match your setup
 3. Run ```systemctl daemon-reload``` to enable the service
 4. Run ```systemctl enable ledstrip``` to have the service start on boot
+5. Run ```systemctl start ledstrip``` to start the service
+
+## Directions to change settings
+
+1. Modify settings in settings.conf
+2. Run ```systemctl restart ledstrip``` to restart the ledstrip service
 
 ### Single run for static colors
 #### Will only work by itself, not if running as a service
