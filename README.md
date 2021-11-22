@@ -7,14 +7,14 @@ The code has been migrated from the OctoPrint-WS281x_LED_Status (https://github.
 
 ## Directions for use
 
-1. Clone/copy code to file on Raspberry Pi running Klipper and Moonraker
+1. Clone/copy code to files on Raspberry Pi running Klipper and Moonraker
 2. Make script executable
    1. ```chmod 744 ./klipper-ledstrip.py```
 4. Install prerequsits 
    1. ```pip3 install requests rpi_ws281x adafruit-circuitpython-neopixel```
-5. Change values in script (LED pin, colors, reverse)
-6. Optionally, change effect called for standby, paused, and error states
-7. Run script before starting print
+5. Change values in settings.conf (LED pin, colors, reverse)
+6. Optionally, change effect called for standby, paused, and error states in settings.conf
+7. If you want to run it manually, start script before starting print (otherwise use the service below)
    1. ```./klipper-ledstrip.py```
 
 ## Directions to run as a systemd service
@@ -23,6 +23,12 @@ The code has been migrated from the OctoPrint-WS281x_LED_Status (https://github.
 2. Modify User, Group, WorkingDirectory, and ExecStart to match your setup
 3. Run ```systemctl daemon-reload``` to enable the service
 4. Run ```systemctl enable ledstrip``` to have the service start on boot
+5. Run ```systemctl start ledstrip``` to start the service
+
+## Directions to change settings
+
+1. Modify settings in settings.conf
+2. Run ```systemctl restart ledstrip``` to restart the ledstrip service
 
 ### Single run for static colors
 #### Will only work by itself, not if running as a service
