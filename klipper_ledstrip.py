@@ -38,6 +38,7 @@ def run():
     strip_settings = settings['strip_settings']
     effects_settings = settings['effects']
     completion_settings = settings['completion_settings']
+    moonraker_settings = settings['moonraker_settings']
 
     strip = Adafruit_NeoPixel(
         strip_settings['led_count'],
@@ -56,10 +57,10 @@ def run():
     base_temps = []
     try:
         while True:
-            printer_state_ = moonraker_api.printer_state()
+            printer_state_ = moonraker_api.printer_state(moonraker_settings)
             # print(printer_state_)
             if printer_state_ == 'printing':
-                printing_stats_ = moonraker_api.printing_stats(base_temps)
+                printing_stats_ = moonraker_api.printing_stats(moonraker_settings, base_temps)
                 printing_percent_ = printing_stats_['printing']['done_percent']
                 ## Get base temperatures to make heating progress start from the bottom
                 if not base_temps:
@@ -112,19 +113,19 @@ def run():
 
             if printer_state_ == 'complete':
                 base_temps = []
-                if moonraker_api.power_status() == 'on':
+                if moonraker_api.power_status(moonraker_settings) == 'on':
                     eval(f"effects.{effects_settings[printer_state_]['effect']}(strip, {effects_settings[printer_state_]['color']}, strip_settings)")
                     shutdown_counter += 1
                     if completion_settings['shutdown_when_complete'] and shutdown_counter > 9:
                         shutdown_counter = 0
-                        printing_stats_ = moonraker_api.printing_stats(base_temps)
+                        printing_stats_ = moonraker_api.printing_stats(moonraker_settings, base_temps)
                         bed_temp = printing_stats_['bed']['temp']
                         extruder_temp = printing_stats_['extruder']['temp']
                         print(f'\nBed temp: {round(bed_temp, 2)}\nExtruder temp: {round(extruder_temp, 2)}\n')
                         if (bed_temp < completion_settings['bed_temp_for_shutdown'] and
                                 extruder_temp < completion_settings['hotend_temp_for_shutdown']):
                             effects.clear_strip(strip)
-                            print(moonraker_api.power_off())
+                            print(moonraker_api.power_off(moonraker_settings))
 
             if printer_state_ not in ['printing', 'complete'] and old_state == printer_state_:
                 idle_timer += 2
