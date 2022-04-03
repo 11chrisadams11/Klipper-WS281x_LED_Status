@@ -51,6 +51,10 @@ def run():
     )
     strip.begin()
 
+    standby_effect = effects.Effects(strip, effects_settings['standby'], strip_settings)
+    paused_effect = effects.Effects(strip, effects_settings['paused'], strip_settings)
+    error_effect = effects.Effects(strip, effects_settings['error'], strip_settings)
+
     shutdown_counter = 0
     idle_timer = 0
     old_state = ''
@@ -109,7 +113,7 @@ def run():
                     )
 
             if printer_state_ in ['standby', 'paused', 'error'] and idle_timer < strip_settings['idle_timeout']:
-                eval(f"effects.{effects_settings[printer_state_]['effect']}(strip, {effects_settings[printer_state_]['color']}, strip_settings)")
+                eval(f"{printer_state_}_effect.run_effect()")
 
             if printer_state_ == 'complete':
                 base_temps = []
