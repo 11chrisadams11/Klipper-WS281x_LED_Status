@@ -4,12 +4,13 @@ LED strip effects functions
 '''
 import math
 import time
-import utils
 from random import randint
+import utils
 
 
 class Effects:
-    def __init__(self, strip, effects_settings, strip_settings):
+    ''' Create effect class '''
+    def __init__(self, strip, strip_settings, effects_settings):
         self.strip = strip
         self.strip_brightness = strip_settings['led_brightness']
 
@@ -18,15 +19,16 @@ class Effects:
         self.effect_color_2 = effects_settings['color_2'] if ('color_2' in effects_settings and effects_settings['color_2']) else None
         self.effect_speed = effects_settings['speed'] if 'speed' in effects_settings else 'fast'
         self.effect_reverse = effects_settings['reverse'] if 'reverse' in effects_settings else False
-        
+
         self.pixel_map = []
         self.set_pixel_map()
 
     def set_pixel_map(self):
+        ''' Create a list of pixel colors based on color settings and strip length '''
         if self.effect_color_1 != 'rainbow' and not self.effect_color_2:
             for i in range(self.strip.numPixels()):
                 self.pixel_map.append(self.effect_color_1)
-        if self.effect_color_1 != 'rainbow' and self.effect_color_2:
+        elif self.effect_color_1 != 'rainbow' and self.effect_color_2:
             spacing = 100 / (self.strip.numPixels() - 2)
             for i in range(self.strip.numPixels()):
                 if i == 0:
@@ -35,7 +37,7 @@ class Effects:
                     self.pixel_map.append(self.effect_color_2)
                 else:
                     self.pixel_map.append(utils.mix_color(self.effect_color_2, self.effect_color_1, (spacing * i) / 100))
-        if self.effect_color_1 == 'rainbow':
+        elif self.effect_color_1 == 'rainbow':
             colors = {
                 'violet': (148, 0  , 211),
                 'purple': (75 , 0  , 130),
@@ -58,13 +60,15 @@ class Effects:
                 if i == (halfish_pixels - 1):
                     self.pixel_map.append(colors['green'])
                 if (halfish_pixels - 1) < i < self.strip.numPixels():
-                    self.pixel_map.append(utils.mix_color(colors['violet'], colors['green'], (top_half_spacing * upper_count) / 100))
+                    self.pixel_map.append(utils.mix_color(colors['purple'], colors['green'], (top_half_spacing * upper_count) / 100))
                     upper_count += 1
 
     def get_pixel_map(self):
+        ''' Return created pixel map '''
         return self.pixel_map
 
     def set_speed(self, slow, fast):
+        ''' Set speed factor based on given setting '''
         if isinstance(self.effect_speed, (int, float)):
             speed = self.effect_speed
         elif self.effect_speed.lower() not in ['fast', 'slow']:
@@ -74,6 +78,7 @@ class Effects:
         return speed
 
     def run_effect(self):
+        ''' Run the effect specified '''
         eval(f"self.{self.effect}()")
 
     def clear_strip(self):
@@ -195,8 +200,8 @@ class Effects:
         ''' Fill strip one pixel at a time '''
         speed = self.set_speed(0.1, 0.05)
         self.clear_strip()
-        for pixel, color in reversed(enumerate(self.pixel_map)) if self.effect_reverse else enumerate(self.pixel_map):
-            self.strip.setPixelColorRGB(pixel, *color)
+        for pixel in reversed(range(len(self.pixel_map))) if self.effect_reverse else range(len(self.pixel_map)):
+            self.strip.setPixelColorRGB(pixel, *self.pixel_map[pixel])
             self.strip.show()
             time.sleep(speed)
 
@@ -225,7 +230,7 @@ class Effects:
         speed = self.set_speed(0.1, 0.05)
         self.strip.setBrightness(self.strip_brightness)
         self.clear_strip()
-        for r in range(int(2 / speed)):
+        for _ in range(int(2 / speed)):
             pixel = randint(0, len(self.pixel_map) - 1)
             self.strip.setPixelColorRGB(pixel, *self.pixel_map[pixel])
             self.strip.show()
@@ -253,7 +258,7 @@ class Effects:
         self.strip.setBrightness(self.strip_brightness)
         self.clear_strip()
         for r in range(int(2 / speed)):
-            for t in range(randint(1, self.strip.numPixels() / 2)):
+            for _ in range(randint(1, self.strip.numPixels() / 2)):
                 i = randint(0, self.strip.numPixels() - 1)
                 r = randint(0, 255)
                 g = randint(0, 255)
@@ -295,9 +300,9 @@ class Effects:
         self.strip.setBrightness(self.strip_brightness)
         color1 = [0, 0, 255] if self.effect_reverse else [255, 255, 0]
         color2 = [255, 255, 0] if self.effect_reverse else [0, 0, 255]
-        
+
         for i in reversed(range(len(self.pixel_map) + 8)) if self.effect_reverse else range(len(self.pixel_map) + 8):
-            for pixel, color in enumerate(self.pixel_map):
+            for pixel in range(len(self.pixel_map)):
                 self.strip.setPixelColorRGB(pixel, *color1 if pixel < ((self.strip.numPixels() - 1) / 2) else color2)
             if 0 <= i < len(self.pixel_map):
                 self.strip.setPixelColorRGB(i, *utils.color_brightness_correction(color1 if i < ((self.strip.numPixels() - 1) / 2) else color2, 80))
@@ -316,49 +321,67 @@ class Effects:
             self.strip.show()
             time.sleep(speed)
 
-def progress(strip, percent, base_color, progress_color, strip_settings):
-    ''' Set LED strip to given progress with base and progress colors '''
-    strip.setBrightness(strip_settings['led_brightness'])
-    num_pixels = strip.numPixels()
-    upper_bar = (percent / 100) * num_pixels
-    upper_remainder, upper_whole = math.modf(upper_bar)
-    pixels_remaining = num_pixels
 
-    for i in range(int(upper_whole)):
-        pixel = ((num_pixels - 1) - i) if strip_settings['reverse_direction'] else i
-        strip.setPixelColorRGB(
-            pixel,
-            *utils.color_brightness_correction(
-                progress_color,
-                strip_settings['led_brightness']
+class Progress:
+    def __init__(self, strip, strip_settings, effect_settings):
+        self.strip = strip
+        self.strip_brightness = strip_settings['led_brightness']
+        self.base_color = effect_settings['base_color']
+        self.progress_color = effect_settings['progress_color']
+        self.effect_reverse = effect_settings['reverse'] if 'reverse' in effect_settings else False
+        self.num_pixels = self.strip.numPixels()
+
+    def set_progress(self, percent):
+        upper_bar = (percent / 100) * self.num_pixels
+        upper_remainder, upper_whole = math.modf(upper_bar)
+        pixels_remaining = self.num_pixels
+        self.strip.setBrightness(self.strip_brightness)
+
+        for i in range(int(upper_whole)):
+            pixel = ((self.num_pixels - 1) - i) if self.effect_reverse else i
+            self.strip.setPixelColorRGB(
+                pixel,
+                *utils.color_brightness_correction(
+                    self.progress_color,
+                    self.strip_brightness
+                )
             )
-        )
-        pixels_remaining -= 1
+            pixels_remaining -= 1
 
-    if upper_remainder > 0.0:
-        tween_color = utils.mix_color(progress_color, base_color, upper_remainder)
-        pixel = ((num_pixels - int(upper_whole)) - 1) if strip_settings['reverse_direction'] else int(upper_whole)
-        strip.setPixelColorRGB(
-            pixel,
-            *utils.color_brightness_correction(
-                tween_color,
-                strip_settings['led_brightness']
+        if upper_remainder > 0.0:
+            tween_color = utils.mix_color(self.progress_color, self.base_color, upper_remainder)
+            pixel = (
+                ((self.num_pixels - int(upper_whole)) - 1)
+                if self.effect_reverse
+                else int(upper_whole)
             )
-        )
-        pixels_remaining -= 1
-
-    for i in range(pixels_remaining):
-        pixel = (
-            ((pixels_remaining - 1) - i)
-            if strip_settings['reverse_direction']
-            else ((num_pixels - pixels_remaining) + i)
-        )
-        strip.setPixelColorRGB(
-            pixel,
-            *utils.color_brightness_correction(
-                base_color,
-                strip_settings['led_brightness']
+            self.strip.setPixelColorRGB(
+                pixel,
+                *utils.color_brightness_correction(
+                    tween_color,
+                    self.strip_brightness
+                )
             )
-        )
+            pixels_remaining -= 1
 
-    strip.show()
+        for i in range(pixels_remaining):
+            pixel = (
+                ((pixels_remaining - 1) - i)
+                if self.effect_reverse
+                else ((self.num_pixels - pixels_remaining) + i)
+            )
+            self.strip.setPixelColorRGB(
+                pixel,
+                *utils.color_brightness_correction(
+                    self.base_color,
+                    self.strip_brightness
+                )
+            )
+
+        self.strip.show()
+
+    def clear_strip(self):
+        ''' Turn all pixels of LED strip off '''
+        for i in range(self.strip.numPixels()):
+            self.strip.setPixelColorRGB(i, 0, 0, 0)
+        self.strip.show()
