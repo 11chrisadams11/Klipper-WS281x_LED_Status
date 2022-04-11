@@ -6,24 +6,37 @@ Script to take info from Klipper and light up WS281x LED strip based on current 
 import sys
 import time
 import yaml
+import logging
 from rpi_ws281x import Adafruit_NeoPixel
 import moonraker_api
 import effects
+
+logging.basicConfig(
+    filename='/home/pi/klipper_logs/ledstrip.log',
+    format='%(asctime)s - [%(levelname)s] %(message)s',
+    encoding='utf-8',
+    level=logging.INFO
+)
+logging.getLogger("requests").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 def get_settings():
     ''' Read settings from file '''
     try:
-        with open('settings.conf', 'r') as settings_file:
+        with open('/home/pi/klipper_config/ledstrip.conf', 'r') as settings_file:
             try:
                 settings = yaml.safe_load(settings_file)
                 return settings
             except yaml.scanner.ScannerError as err:
-                print(f'\nSettings file formatted incorrectly:\n\t{err}')
+                logging.error(f'\nSettings file formatted incorrectly:\n\t{err}')
                 sys.exit()
     except FileNotFoundError:
-        print('\nSettings file (settings.conf) not found.')
-        sys.exit()
+        logging.warning('\nSettings file (/home/pi/klipper_config/ledstrip.conf) not found, adding base file.')
+        with open('settings.sample.conf', 'r') as base_settings_file:
+            with open('/home/pi/klipper_config/ledstrip.conf', 'w') as settings_file:
+                settings_file.write(base_settings_file.read())
+        get_settings()
 
 
 def run():
@@ -61,7 +74,7 @@ def run():
     try:
         while True:
             printer_state_ = moonraker_api.printer_state(moonraker_settings)
-            # print(printer_state_)
+            logging.debug(printer_state_)
             if printer_state_ == 'printing':
                 printing_stats_ = moonraker_api.printing_stats(moonraker_settings, base_temps)
                 printing_percent_ = printing_stats_['printing']['done_percent']
@@ -73,7 +86,7 @@ def run():
                     ]
 
                 ## Set bed heating progress
-                # print(printing_percent_)
+                logging.debug(printing_percent_)
                 if (printing_percent_ < 1 or printing_percent_ == 100) and printing_stats_['bed']['heating_percent'] < 100:
                     bed_progress.set_progress(printing_stats_['bed']['heating_percent'])
 
@@ -110,7 +123,7 @@ def run():
                         printing_stats_ = moonraker_api.printing_stats(moonraker_settings, base_temps)
                         bed_temp = printing_stats_['bed']['temp']
                         extruder_temp = printing_stats_['extruder']['temp']
-                        # print(f'\nBed temp: {round(bed_temp, 2)}\nExtruder temp: {round(extruder_temp, 2)}\n')
+                        logging.debug(f'\nBed temp: {round(bed_temp, 2)}\nExtruder temp: {round(extruder_temp, 2)}\n')
                         if (bed_temp < completion_settings['bed_temp_for_shutdown'] and
                                 extruder_temp < completion_settings['hotend_temp_for_shutdown']):
                             complete_effect.clear_strip()
