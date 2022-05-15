@@ -17,10 +17,6 @@ class Effects:
         self.effects_settings = effects_settings
         self.printer_state = 'standby'
         self.effect_running = False
-
-        # self.effect = effects_settings['effect'] if 'effect' in effects_settings else 'solid'
-        # self.effect_color_1 = effects_settings['color_1'] if ('color_1' in effects_settings and effects_settings['color_1']) else [255, 255, 255]
-        # self.effect_color_2 = effects_settings['color_2'] if ('color_2' in effects_settings and effects_settings['color_2']) else None
         self.effect_speed = ''
         self.effect_reverse = ''
 
@@ -30,7 +26,6 @@ class Effects:
             'paused': [],
             'error': [],
         }
-
         for state in self.pixel_map:
             effect_color_1 = effects_settings[state]['color_1'] if ('color_1' in effects_settings[state] and effects_settings[state]['color_1']) else [255, 255, 255]
             effect_color_2 = effects_settings[state]['color_2'] if ('color_2' in effects_settings[state] and effects_settings[state]['color_2']) else None
