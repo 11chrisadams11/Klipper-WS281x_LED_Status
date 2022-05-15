@@ -1,5 +1,19 @@
 # Change Log
 
+----
+
+## 2022-05-15
+Threading and settings sample
+
+### Changed
+- Moved non-progress effects to their own thread to avoid pause between status checks
+- Cleaned up effects class to work with threads
+- Renamed settings.conf to settings_sample.conf to not overwrite previous settings
+- Write sample settings if file not found
+- Update service sample to clear LED strip on service stop
+
+----
+
 ## 2022-04-04
 More effects and a lot of cleanup.
 The settings format has changed a bit, so you might need to redo your changes (Sorry)

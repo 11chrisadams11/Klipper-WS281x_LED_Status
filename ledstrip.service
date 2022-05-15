@@ -10,6 +10,7 @@ WorkingDirectory=/home/pi/Klipper-WS281x_LED_Status/
 ExecStart=/home/pi/Klipper-WS281x_LED_Status/klipper_ledstrip.py
 StandardOutput=syslog
 StandardError=syslog
+KillSignal=SIGINT
 
 [Install]
 WantedBy=multi-user.target
