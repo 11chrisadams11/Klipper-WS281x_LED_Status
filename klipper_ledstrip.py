@@ -6,6 +6,7 @@ Script to take info from Klipper and light up WS281x LED strip based on current 
 import sys
 import time
 import yaml
+import threading
 from rpi_ws281x import Adafruit_NeoPixel
 import moonraker_api
 import effects
@@ -22,8 +23,11 @@ def get_settings():
                 print(f'\nSettings file formatted incorrectly:\n\t{err}')
                 sys.exit()
     except FileNotFoundError:
-        print('\nSettings file (settings.conf) not found.')
-        sys.exit()
+        print('\nSettings file (settings.conf) not found. Adding sample settings.')
+        with open('settings_sample.conf', 'r') as sample_settings_file:
+            with open('settings.conf', 'w') as settings_file:
+                settings_file.write(sample_settings_file.read())
+        return get_settings()
 
 
 def run():
@@ -45,11 +49,7 @@ def run():
     )
     strip.begin()
 
-    standby_effect = effects.Effects(strip, strip_settings, effects_settings['standby'])
-    paused_effect = effects.Effects(strip, strip_settings, effects_settings['paused'])
-    error_effect = effects.Effects(strip, strip_settings, effects_settings['error'])
-    complete_effect = effects.Effects(strip, strip_settings, effects_settings['complete'])
-
+    effects_cl = effects.Effects(strip, strip_settings, effects_settings)
     bed_progress = effects.Progress(strip, strip_settings, effects_settings['bed_heating'])
     hotend_progress = effects.Progress(strip, strip_settings, effects_settings['hotend_heating'])
     printing_progress = effects.Progress(strip, strip_settings, effects_settings['printing'])
@@ -58,6 +58,7 @@ def run():
     idle_timer = 0
     old_state = ''
     base_temps = []
+    test_counter = 0
     try:
         while True:
             printer_state_ = moonraker_api.printer_state(moonraker_settings)
@@ -97,13 +98,9 @@ def run():
                 if 0 < printing_percent_ < 100:
                     printing_progress.set_progress(printing_percent_)
 
-            if printer_state_ in ['standby', 'paused', 'error'] and idle_timer < strip_settings['idle_timeout']:
-                eval(f"{printer_state_}_effect.run_effect()")
-
             if printer_state_ == 'complete':
                 base_temps = []
                 if moonraker_api.power_status(moonraker_settings) == 'on':
-                    eval(f"{printer_state_}_effect.run_effect()")
                     shutdown_counter += 1
                     if completion_settings['shutdown_when_complete'] and shutdown_counter > 9:
                         shutdown_counter = 0
@@ -111,23 +108,39 @@ def run():
                         bed_temp = printing_stats_['bed']['temp']
                         extruder_temp = printing_stats_['extruder']['temp']
                         # print(f'\nBed temp: {round(bed_temp, 2)}\nExtruder temp: {round(extruder_temp, 2)}\n')
-                        if (bed_temp < completion_settings['bed_temp_for_shutdown'] and
-                                extruder_temp < completion_settings['hotend_temp_for_shutdown']):
-                            complete_effect.clear_strip()
+                        if (bed_temp < completion_settings['bed_temp_for_shutdown'] and extruder_temp < completion_settings['hotend_temp_for_shutdown']):
+                            effects_cl.stop_thread()
+                            while effects_cl.effect_running:
+                                        time.sleep(0.1)
+                            effects_cl.clear_strip()
                             print(moonraker_api.power_off(moonraker_settings))
 
             if printer_state_ not in ['printing', 'complete'] and old_state == printer_state_:
                 idle_timer += 2
                 if idle_timer > strip_settings['idle_timeout']:
-                    eval(f"{printer_state_}_effect.clear_strip()")
+                    effects_cl.stop_thread()
+                    while effects_cl.effect_running:
+                                time.sleep(0.1)
+                    effects_cl.clear_strip()
             else:
                 idle_timer = 0
 
+            if old_state != printer_state_:
+                effects_cl.stop_thread()
+                while effects_cl.effect_running:
+                    time.sleep(0.1)
+                effects_cl.start_thread()
+                if printer_state_ in ['complete', 'standby', 'paused', 'error']:
+                    effect_thread = threading.Thread(target=effects_cl.run_effect, args=(printer_state_,)).start()
+                
             old_state = printer_state_
             time.sleep(2)
 
     except KeyboardInterrupt:
-        effects.clear_strip(strip)
+        effects_cl.stop_thread()
+        while effects_cl.effect_running:
+                    time.sleep(0.1)
+        effects_cl.clear_strip()
 
 
 if __name__ == '__main__':
