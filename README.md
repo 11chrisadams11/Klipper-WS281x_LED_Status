@@ -12,7 +12,7 @@ The code has been migrated from the OctoPrint-WS281x_LED_Status (https://github.
    2. ```sudo pip3 install requests PyYAML RPi.GPIO rpi_ws281x adafruit-circuitpython-neopixel```
 2. Clone code to Raspberry Pi running Klipper and Moonraker
    1. ```cd /home/pi```
-   2. ```git clone git@github.com:11chrisadams11/Klipper-WS281x_LED_Status.git```
+   2. ```git clone https://github.com/11chrisadams11/Klipper-WS281x_LED_Status.git```
    3. ```cd Klipper-WS281x_LED_Status.git```
 3. Make script executable
    1. ```chmod 744 ./klipper_ledstrip.py```
