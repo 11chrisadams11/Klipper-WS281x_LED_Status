@@ -10,7 +10,7 @@ import threading
 from rpi_ws281x import Adafruit_NeoPixel
 import moonraker_api
 import effects
-
+import utils
 
 def get_settings():
     ''' Read settings from file '''
@@ -132,7 +132,7 @@ def run():
                 effects_cl.start_thread()
                 if printer_state_ in ['complete', 'standby', 'paused', 'error']:
                     effect_thread = threading.Thread(target=effects_cl.run_effect, args=(printer_state_,)).start()
-                
+
             old_state = printer_state_
             time.sleep(2)
 
@@ -141,7 +141,6 @@ def run():
         while effects_cl.effect_running:
                     time.sleep(0.1)
         effects_cl.clear_strip()
-
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
@@ -162,6 +161,9 @@ if __name__ == '__main__':
 
         COLOR = (int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
         BRIGHTNESS = int(sys.argv[4]) if len(sys.argv) > 4 else STRIP_SETTINGS['led_brightness']
-        effects.static_color(STRIP, COLOR, BRIGHTNESS)
+
+        for pixel in range(STRIP.numPixels()):
+            STRIP.setPixelColorRGB(pixel, *utils.color_brightness_correction(COLOR, BRIGHTNESS))
+        STRIP.show()
     else:
         run()
