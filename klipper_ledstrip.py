@@ -32,14 +32,7 @@ def get_settings():
         return get_settings()
 
 
-def run():
-    ''' Do work son '''
-    settings = get_settings()
-    strip_settings = settings['strip_settings']
-    effects_settings = settings['effects']
-    completion_settings = settings['completion_settings']
-    moonraker_settings = settings['moonraker_settings']
-
+def set_strip(strip_settings):
     strip = Adafruit_NeoPixel(
         strip_settings['led_count'],
         strip_settings['led_pin'],
@@ -49,6 +42,18 @@ def run():
         strip_settings['led_brightness'],
         strip_settings['led_channel'],
     )
+    return strip
+
+
+def run():
+    ''' Do work son '''
+    settings = get_settings()
+    strip_settings = settings['strip_settings']
+    effects_settings = settings['effects']
+    completion_settings = settings['completion_settings']
+    moonraker_settings = settings['moonraker_settings']
+
+    strip = set_strip(strip_settings)
     strip.begin()
 
     effects_cl = effects.Effects(strip, strip_settings, effects_settings)
@@ -147,25 +152,17 @@ def run():
 if __name__ == '__main__':
     if len(sys.argv) > 1:
 
-        SETTINGS = get_settings()
-        STRIP_SETTINGS = SETTINGS['strip_settings']
+        strip_settings = get_settings()['strip_settings']
 
-        STRIP = Adafruit_NeoPixel(
-            STRIP_SETTINGS['led_count'],
-            STRIP_SETTINGS['led_pin'],
-            STRIP_SETTINGS['led_freq_hz'],
-            STRIP_SETTINGS['led_dma'],
-            STRIP_SETTINGS['led_invert'],
-            STRIP_SETTINGS['led_brightness'],
-            STRIP_SETTINGS['led_channel'],
-        )
-        STRIP.begin()
+        strip = set_strip(strip_settings)
+        strip.begin()
 
-        COLOR = (int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
-        BRIGHTNESS = int(sys.argv[4]) if len(sys.argv) > 4 else STRIP_SETTINGS['led_brightness']
+        color = (int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
+        brightness = int(sys.argv[4]) if len(sys.argv) > 4 else strip_settings['led_brightness']
 
-        for pixel in range(STRIP.numPixels()):
-            STRIP.setPixelColorRGB(pixel, *utils.color_brightness_correction(COLOR, BRIGHTNESS))
-        STRIP.show()
+        for pixel in range(strip.numPixels()):
+            strip.setPixelColorRGB(pixel, *utils.color_brightness_correction(color, brightness))
+        strip.show()
     else:
         run()
+
