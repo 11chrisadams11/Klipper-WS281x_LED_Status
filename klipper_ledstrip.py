@@ -3,6 +3,7 @@
 '''
 Script to take info from Klipper and light up WS281x LED strip based on current status
 '''
+import os
 import sys
 import time
 import yaml
@@ -14,8 +15,9 @@ import utils
 
 def get_settings():
     ''' Read settings from file '''
+    script_path = os.path.dirname(os.path.realpath(__file__))
     try:
-        with open('settings.conf', 'r') as settings_file:
+        with open(f'{script_path}/settings.conf', 'r') as settings_file:
             try:
                 settings = yaml.safe_load(settings_file)
                 return settings
@@ -24,8 +26,8 @@ def get_settings():
                 sys.exit()
     except FileNotFoundError:
         print('\nSettings file (settings.conf) not found. Adding sample settings.')
-        with open('settings_sample.conf', 'r') as sample_settings_file:
-            with open('settings.conf', 'w') as settings_file:
+        with open(f'{script_path}/settings_sample.conf', 'r') as sample_settings_file:
+            with open(f'{script_path}/settings.conf', 'w') as settings_file:
                 settings_file.write(sample_settings_file.read())
         return get_settings()
 
