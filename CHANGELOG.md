@@ -2,6 +2,16 @@
 
 ----
 
+## 2023-03-04
+Remove power off functions and add Moonraker API class
+
+### Changed
+- Removed settings and functions for powering off printer, as it was not related to controlling LED strips (moved to https://github.com/11chrisadams11/klipper-power-off-on-completion)
+- Moved Moonraker API functions to a class
+- General cleanup
+
+----
+
 ## 2022-05-15
 Threading and settings sample
 

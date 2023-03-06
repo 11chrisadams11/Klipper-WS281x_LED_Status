@@ -48,11 +48,12 @@ def set_strip(strip_settings):
 def run():
     ''' Do work son '''
     settings = get_settings()
+    
+    moonraker_settings = settings['moonraker_settings']
+    moonraker_api_cl = moonraker_api.MoonrakerAPI(moonraker_settings)
+    
     strip_settings = settings['strip_settings']
     effects_settings = settings['effects']
-    completion_settings = settings['completion_settings']
-    moonraker_settings = settings['moonraker_settings']
-
     strip = set_strip(strip_settings)
     strip.begin()
 
@@ -64,89 +65,65 @@ def run():
     shutdown_counter = 0
     idle_timer = 0
     old_state = ''
-    base_temps = []
     test_counter = 0
     try:
         while True:
-            printer_state_ = moonraker_api.printer_state(moonraker_settings)
-            # print(printer_state_)
-            if printer_state_ == 'printing':
-                printing_stats_ = moonraker_api.printing_stats(moonraker_settings, base_temps)
-                printing_percent_ = printing_stats_['printing']['done_percent']
-                ## Get base temperatures to make heating progress start from the bottom
-                if not base_temps:
-                    base_temps = [
-                        printing_stats_['bed']['temp'],
-                        printing_stats_['extruder']['temp']
-                    ]
+            printer_state = moonraker_api_cl.printer_state()
+            # print(printer_state)
+            if printer_state == 'printing':
+                printing_stats = moonraker_api_cl.printing_stats()
+                printing_percent = printing_stats['printing']['done_percent']
 
                 ## Set bed heating progress
-                # print(printing_percent_)
-                if (printing_percent_ < 1 or printing_percent_ == 100) and printing_stats_['bed']['heating_percent'] < 100:
-                    bed_progress.set_progress(printing_stats_['bed']['heating_percent'])
+                # print(printing_percent)
+                if (printing_percent < 1 or printing_percent == 100) and printing_stats['bed']['heating_percent'] < 100:
+                    bed_progress.set_progress(printing_stats['bed']['heating_percent'])
 
                 ## Set hotend heating progress
                 if (
-                    (printing_percent_ < 1 or printing_percent_ == 100) and
-                    printing_stats_['extruder']['heating_percent'] < 100 and
-                    printing_stats_['bed']['heating_percent'] >= 99
+                    (printing_percent < 1 or printing_percent == 100) and
+                    printing_stats['extruder']['heating_percent'] < 100 and
+                    printing_stats['bed']['heating_percent'] >= 99
                 ):
-                    hotend_progress.set_progress(printing_stats_['extruder']['heating_percent'])
+                    hotend_progress.set_progress(printing_stats['extruder']['heating_percent'])
 
                 ## Clear strip if bed and hotend heating are both done and print percent is 0
                 if (
-                    printing_percent_ == 0 and
-                    printing_stats_['extruder']['heating_percent'] >= 100 and
-                    printing_stats_['bed']['heating_percent'] >= 100
+                    printing_percent == 0 and
+                    printing_stats['extruder']['heating_percent'] >= 100 and
+                    printing_stats['bed']['heating_percent'] >= 100
                 ):
                     printing_progress.clear_strip()
 
                 ## Set printing progress
-                if 0 < printing_percent_ < 100:
-                    printing_progress.set_progress(printing_percent_)
+                if 0 < printing_percent < 100:
+                    printing_progress.set_progress(printing_percent)
 
-            if printer_state_ == 'complete':
-                base_temps = []
-                if moonraker_api.power_status(moonraker_settings) == 'on':
-                    shutdown_counter += 1
-                    if completion_settings['shutdown_when_complete'] and shutdown_counter > 9:
-                        shutdown_counter = 0
-                        printing_stats_ = moonraker_api.printing_stats(moonraker_settings, base_temps)
-                        bed_temp = printing_stats_['bed']['temp']
-                        extruder_temp = printing_stats_['extruder']['temp']
-                        # print(f'\nBed temp: {round(bed_temp, 2)}\nExtruder temp: {round(extruder_temp, 2)}\n')
-                        if (bed_temp < completion_settings['bed_temp_for_shutdown'] and extruder_temp < completion_settings['hotend_temp_for_shutdown']):
-                            effects_cl.stop_thread()
-                            while effects_cl.effect_running:
-                                        time.sleep(0.1)
-                            effects_cl.clear_strip()
-                            print(moonraker_api.power_off(moonraker_settings))
-
-            if printer_state_ not in ['printing', 'complete'] and old_state == printer_state_:
+            if printer_state != 'printing' and old_state == printer_state:
                 idle_timer += 2
                 if idle_timer > strip_settings['idle_timeout']:
                     effects_cl.stop_thread()
                     while effects_cl.effect_running:
-                                time.sleep(0.1)
+                        time.sleep(0.1)
                     effects_cl.clear_strip()
             else:
                 idle_timer = 0
 
-            if old_state != printer_state_:
+            if old_state != printer_state:
                 effects_cl.stop_thread()
                 while effects_cl.effect_running:
                     time.sleep(0.1)
                 effects_cl.start_thread()
-                if printer_state_ in ['complete', 'standby', 'paused', 'error']:
-                    effect_thread = threading.Thread(target=effects_cl.run_effect, args=(printer_state_,)).start()
+                if printer_state in ['complete', 'standby', 'paused', 'error']:
+                    effect_thread = threading.Thread(target=effects_cl.run_effect, args=(printer_state,)).start()
 
-            old_state = printer_state_
+            old_state = printer_state
             time.sleep(2)
 
-    except KeyboardInterrupt:
+    except:
         effects_cl.stop_thread()
         while effects_cl.effect_running:
-                    time.sleep(0.1)
+            time.sleep(0.1)
         effects_cl.clear_strip()
 
 if __name__ == '__main__':
@@ -165,4 +142,3 @@ if __name__ == '__main__':
         strip.show()
     else:
         run()
-
